@@ -1,3 +1,4 @@
+import os
 import uuid
 from typing import List, Optional, Union
 
@@ -12,6 +13,17 @@ DEFAULT_COLLECTION_NAME = "deepsearcher"
 TEXT_PAYLOAD_KEY = "text"
 REFERENCE_PAYLOAD_KEY = "reference"
 METADATA_PAYLOAD_KEY = "metadata"
+
+
+def point_id(reference: Optional[str], text: Optional[str]) -> str:
+    """Deterministic id so re-loading the same chunk overwrites instead of duplicating.
+
+    Local paths are keyed by file name only: callers stage files under per-run
+    directories, so the same document arrives under a new path every run.
+    """
+    ref = str(reference or "")
+    key = os.path.basename(ref) if ref.startswith("/") else ref
+    return uuid.uuid5(uuid.NAMESPACE_URL, key + "\0" + str(text or "")).hex
 
 
 class Qdrant(BaseVectorDB):
@@ -186,7 +198,7 @@ class Qdrant(BaseVectorDB):
 
                 points = [
                     models.PointStruct(
-                        id=uuid.uuid4().hex,
+                        id=point_id(chunk.reference, chunk.text),
                         vector=chunk.embedding,
                         payload={
                             TEXT_PAYLOAD_KEY: chunk.text,
