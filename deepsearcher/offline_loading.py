@@ -18,6 +18,8 @@ def _embed_and_insert(chunks, embedding_model, vector_db, collection_name, batch
     for i in range(0, len(chunks), EMBED_INSERT_SLICE):
         part = embedding_model.embed_chunks(chunks[i : i + EMBED_INSERT_SLICE], batch_size=batch_size)
         vector_db.insert_data(collection=collection_name, chunks=part)
+        for c in part:  # embed_chunks sets vectors on the shared chunk objects; release them
+            c.embedding = None
 
 def load_from_local_files(
     paths_or_directory: Union[str, List[str]],
