@@ -8,6 +8,17 @@ from deepsearcher import configuration
 from deepsearcher.loader.splitter import split_docs_to_chunks
 
 
+
+# Embedding a whole request at once held every vector in RAM before the first insert
+# (an 80k-chunk request reached ~4 GB, 23 Nov 2026). Slices keep memory bounded.
+EMBED_INSERT_SLICE = 4096
+
+
+def _embed_and_insert(chunks, embedding_model, vector_db, collection_name, batch_size):
+    for i in range(0, len(chunks), EMBED_INSERT_SLICE):
+        part = embedding_model.embed_chunks(chunks[i : i + EMBED_INSERT_SLICE], batch_size=batch_size)
+        vector_db.insert_data(collection=collection_name, chunks=part)
+
 def load_from_local_files(
     paths_or_directory: Union[str, List[str]],
     collection_name: str = None,
@@ -65,8 +76,7 @@ def load_from_local_files(
         chunk_overlap=chunk_overlap,
     )
 
-    chunks = embedding_model.embed_chunks(chunks, batch_size=batch_size)
-    vector_db.insert_data(collection=collection_name, chunks=chunks)
+    _embed_and_insert(chunks, embedding_model, vector_db, collection_name, batch_size)
 
 
 def load_from_website(
@@ -115,5 +125,4 @@ def load_from_website(
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
     )
-    chunks = embedding_model.embed_chunks(chunks, batch_size=batch_size)
-    vector_db.insert_data(collection=collection_name, chunks=chunks)
+    _embed_and_insert(chunks, embedding_model, vector_db, collection_name, batch_size)
